@@ -1,36 +1,51 @@
 # -*- encoding=utf8 -*-
 
 from GameHelper.core.helper.aster import AStar
-from typing import Array, List
+from typing import List
 from enum import Enum
 import sys
 import math
+import numpy as np
+
 
 class NodeEnum(Enum):
-    #    
-    NORMAL = 1
-    # 障碍物 
+    # 未知, 未探索的点.
+    UNKNOWN = 0
+    # 空地
+    EMPTY = 1
+    # 地图外
     WALL = 2
-    # 未知
-    UNKNOWN = 3
-    # 怪物
-    MONSTER = 4
-    # 3:BOSS   
-    BOSS = 5
-    # 宝石罐子
-    GEN = 6
-    # 宝箱
-    BOX = 7
-    # 下层入口
-    NEXT = 8
-    # 商店
-    SHOP = 9
+    # 下一层
+    NEXT_FLOOR = 3
+    # 商店. 探索之后根据反馈确定
+    SHOP = 4
+    # 木箱子, 黄箱子，金箱子(操作), 宝石罐子, BUFF
+    CLICK_BLOCK = 5
+    # 祭坛
+    ALTAR = 6
+    # 秘境空间
+    SPACE = 7
+    # 除空地和地图之外的其他。可点击探索的。[怪物, 宝箱, 罐子, 下一层, ]
+    CLICK = 10
+    # 地图玩家当前位置
+    PLAYER = 98
+    # 地图原始点. 仅显示时，使用
+    ORIGIN = 99
 
 
 class Node:
     x: int
     y: int
     state: NodeEnum
+
+    def __init__(self, x=0, y=0, state=NodeEnum.UNKNOWN) -> None:
+        self.x = x
+        self.y = y
+        self.state = state
+        pass
+
+    def __str__(self) -> str:
+        return "({},{},{})".format(self.x, self.y, self.state.name)
 
 
 class Navigation(AStar):
@@ -41,7 +56,7 @@ class Navigation(AStar):
 
         return
 
-    def discover(self, data: List[Node]) -> None:
+    def discover(self, direction: int, data: List[Node]) -> None:
 
         return
 
@@ -51,9 +66,10 @@ class Navigation(AStar):
                 return True
         return False
 
-    pass
-
-
 class TiredMap:
 
     pass
+
+
+v= np.zeros((50, 50), np.dtype(np.int8))
+print(v)

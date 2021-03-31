@@ -2,75 +2,189 @@
 __author__ = "TinyZ"
 
 
-
+from GameHelper.core.helper.nav import Node, NodeEnum
+from GameHelper.core.util.ciede2000 import ciede2000
 from airtest.core.api import *
 from airtest.core.cv import loop_find
 from airtest.aircv import *
-from GameHelper.core.helper.images import screen_snapshot
+from GameHelper.core.helper.images import get_pixel_color, hex_to_rgb, rgb_to_hex, screen_snapshot
+from tdydxc import *
 
 
-def get_point_rgb_value(screen, point):
-    # 位于屏幕中[x, y]位置的点的rgb值的获取：(x,y均从0计数)
-    # 注意：这里拿到的颜色是bgr，而非rgb
-    x, y = point
-    bgr = screen[y][x]
-    return bgr[...,::-1]
+def snapshot_mini_map():
+    # 获取小地图截图
+    _screen = device().snapshot()
+    return screen_snapshot(_screen, [532, 8, 712, 188])
 
 
-def get_multi_point_bgr_value(screen, *args):
-    _result = []
-    for arg in args:
-        _result.append(get_point_rgb_value(screen, arg))
+def on_game_move(scene: TdydxcScene, direction: Direction):
+    # 移动一个格子. 坐标识别比较困难
+    rel_p = scene.get_screen_point(direction)
+    print("touch point:{}".format(rel_p))
+    _prev_mini_map = scene.parse_mini_map(snapshot_mini_map())
+    touch(rel_p)
+    sleep(1)
+    # 根据点击的反馈确定目标类型
+    mini_map = snapshot_mini_map()
+    if mini_map == _prev_mini_map:
+        print("移动失败")
+        scene.map_draw()
+        aircv.show_origin_size(mini_map)
+        return
+    node = scene.get_click_point(direction)
+    print("player move to:{}".format(node))
+    if node.state == NodeEnum.EMPTY:
+        # 等待移动完成. 优化一下判断逻辑. 有可能卡住导致移动失败
+        scene.map_move(mini_map, direction)
         pass
-    return _result
+    elif node.state == NodeEnum.CLICK:
+        if exists(Template(r"tpl1616074069208.png", record_pos=(-0.008, 0.376), resolution=(720, 1280))):
+            # 进入战斗, 等待战斗胜利.
+            # 有可能出现秒杀，耗时短, 必须优先判断
+            on_game_battle(scene)
+            scene.map_discover(direction, NodeEnum.EMPTY)
+            pass
+        elif exists(Template(r"tpl1617017357016.png", record_pos=(-0.01, -0.032), resolution=(720, 1280))):
+            if scene.game.is_full_map and not scene.is_map_clean():
+                scene.map_discover(direction, NodeEnum.NEXT_FLOOR)
+                scene.map_move(mini_map, direction)
+                # 先取消进去下一次. 等待全图探索完成, 自动追加下一次按钮
+                touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
+                pass
+            else:
+                # 进入下一层. 地图清空，不需要map_discover和map_move
+                touch(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440)))
+                # 等待加载完成
+                wait(Template(r"tpl1617102958252.png", record_pos=(-0.453, -0.724), resolution=(720, 1280)))
+                scene.game.cur_floor += 1
+                pass
+        elif exists(Template(r"tpl1617191129012.png", record_pos=(0.011, -0.325), resolution=(720, 1280))):
+            # 祭坛  TODO: 直接退出
+            # if exists(Template(r"tpl1617191352726.png", rgb=True, record_pos=(0.0, 0.321), resolution=(720, 1280))):
+            touch(Template(r"tpl1617191310309.png", record_pos=(0.024, 0.693), resolution=(720, 1280)))
+            scene.map_discover(direction, NodeEnum.ALTAR)
+            pass
+        elif exists(Template(r"tpl1617202135423.png", record_pos=(-0.044, -0.028), resolution=(720, 1280))):
+            # 秘境, 不进.
+            touch(Template(r"tpl1617191310309.png", record_pos=(0.024, 0.693), resolution=(720, 1280)))
+            scene.map_discover(direction, NodeEnum.SPACE)
+            pass
+        elif exists(Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280))):
+            scene.map_discover(direction, NodeEnum.SHOP)
+            # 商店 - "退出"按钮  - TODO: 购买药瓶等逻辑
+            touch(Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280)))
+            pass
+        else:
+            # 点击会移动的节点： 金币, 误判[宠物]等节点, 移除待排查列表
+            # 点击不会移动的节点： 木箱子、宝石罐、金箱子、BUFF、青蛙祭坛、
+            scene.map_discover(direction, NodeEnum.EMPTY)
+            scene.map_move(mini_map, direction)
+            scene.map_draw()
+            scene.get_map_node(mini_map, scene.get_mini_point(direction))
+            aircv.show_origin_size(mini_map)
+            pass
+        pass
+    elif node.state == NodeEnum.CLICK_BLOCK:
+        scene.map_discover(direction, NodeEnum.EMPTY)
+        scene.map_draw()
+        aircv.show_origin_size(mini_map)
+        pass
+    else:
+        scene.map_draw()
+        aircv.show_origin_size(mini_map)
+        pass
+    # print(scene.get_nodes())
+    # aircv.show_origin_size(mini_map)
+    return
 
-def lookup_rect_image(screen, rect):
-    return aircv.crop_image(screen, rect)
 
-_screen = device().snapshot()
-cut_img = screen_snapshot(_screen, [530, 30, 720, 190])
-tpl = Template(r"tpl1616404431747.png", record_pos=(0.365, -0.751), resolution=(720, 1280))
-print("match in", tpl.match_in(cut_img))
-print(get_point_rgb_value(cut_img, (1, 1)))
-
-
-
-
+def on_game_battle(scene: TdydxcScene) -> None:
+    btn_giveup = Template(r"tpl1616074069208.png", record_pos=(-0.008, 0.376), resolution=(720, 1280))
+    # 等待战斗结束
+    while exists(btn_giveup):
+        # TODO: 判断是否需要使用技能
+        sleep(3)
+        pass
+    sleep(2)
+    return
 
 
+def on_auto_battle() -> None:
+    w, h = device().get_current_resolution()  # 获取手机分辨率
+    game = TdydxcGame()
+    game.screen_center_point = [0.5*w, 0.5*h]
+    game.screen_point_cell_width = w/8
+    game.is_full_map = True
+
+    _floor = 0
+    _battle_end = False
+    while(not _battle_end):
+        if _floor != game.cur_floor:
+            # 需要重新初始化地图
+            tdydxc = TdydxcScene()
+            mini_map = snapshot_mini_map()
+            tdydxc.init_mini_map(mini_map)
+            print(tdydxc.get_nodes())
+            tdydxc.game = game
+            aircv.show_origin_size(mini_map)
+            _floor = game.cur_floor
+            pass
+        _next = tdydxc.nav_next_point()
+        if not _next:
+            break
+        on_game_move(tdydxc, _next)
+        pass
+    return
 
 
+on_auto_battle()
+aircv.show_origin_size(snapshot_mini_map())
 
 
-def func_low_bonfire():
-    touch(Template(r"tpl1615902058574.png", record_pos=(0.438, -0.564), resolution=(811, 1440)))
+def on_battle_change_bonfire() -> None:
+    """调整灯火亮度.
+    """
+    touch(Template(r"tpl1615902058574.png", record_pos=(
+        0.438, -0.564), resolution=(811, 1440)))
 #     while not exists(Template(r"tpl1616159184068.png", rgb=True, record_pos=(0.171, 0.482), resolution=(720, 1280))):
     for x in range(4):
-        touch(Template(r"tpl1615902061934.png", record_pos=(0.163, 0.506), resolution=(811, 1440)))
-        touch(Template(r"tpl1615902063423.png", record_pos=(-0.183, 0.226), resolution=(811, 1440)))
+        touch(Template(r"tpl1615902061934.png", record_pos=(
+            0.163, 0.506), resolution=(811, 1440)))
+        touch(Template(r"tpl1615902063423.png",
+                       record_pos=(-0.183, 0.226), resolution=(811, 1440)))
         pass
-    touch(Template(r"tpl1615902073472.png", record_pos=(0.018, 0.8), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902073472.png", record_pos=(
+        0.018, 0.8), resolution=(811, 1440)))
     pass
 
 
-def func_auto_task():
-    touch(Template(r"tpl1616073759155.png", record_pos=(-0.079, 0.475), resolution=(720, 1280)))
-    touch(Template(r"tpl1615902044737.png", record_pos=(0.295, -0.005), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902046273.png", record_pos=(-0.04, 0.464), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902047920.png", record_pos=(-0.204, 0.218), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902050254.png", record_pos=(-0.033, 0.803), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902052185.png", record_pos=(-0.033, 0.803), resolution=(811, 1440)))
+def on_auto_kill_boss_task():
+    """自动挑战BOSS
+    """
+    touch(Template(r"tpl1616073759155.png",
+                   record_pos=(-0.079, 0.475), resolution=(720, 1280)))
+    touch(Template(r"tpl1615902044737.png", record_pos=(
+        0.295, -0.005), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902046273.png",
+                   record_pos=(-0.04, 0.464), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902047920.png",
+                   record_pos=(-0.204, 0.218), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902050254.png",
+                   record_pos=(-0.033, 0.803), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902052185.png",
+                   record_pos=(-0.033, 0.803), resolution=(811, 1440)))
 
-    func_low_bonfire()
+    on_battle_change_bonfire()
 
-    ### 计算右中间位置的坐标，两次开始战斗。
-    w,h=device().get_current_resolution()#获取手机分辨率
+    # 计算右中间位置的坐标，两次开始战斗。
+    w, h = device().get_current_resolution()  # 获取手机分辨率
     screen_mid_point = [0.5*w, 0.5*h]
     cell_width = w/8
 
-    btn_giveup = Template(r"tpl1616074069208.png", record_pos=(-0.008, 0.376), resolution=(720, 1280))
+    btn_giveup = Template(r"tpl1616074069208.png",
+                          record_pos=(-0.008, 0.376), resolution=(720, 1280))
     while not exists(btn_giveup):
-        swipe(screen_mid_point, vector = [0.3, 0.0015])
+        swipe(screen_mid_point, vector=[0.3, 0.0015])
         sleep(1)
         pass
     # 等待战斗结束
@@ -79,11 +193,12 @@ def func_auto_task():
         pass
 
     sleep(2)
-    ## 拾取战利品
+    # 拾取战利品
 
     # touch([0.5*w + 0.125*w, 0.5*h + 0.125*h])#点击手机中心位置
     print("mid point:", screen_mid_point)
     print("cell_width:", cell_width)
+
     def func_move_by_swipe(point, cell_width, vec):
         p = (point[0] + vec[0] * cell_width, point[1] + vec[1] * cell_width)
         print("touch point:",  p)
@@ -91,17 +206,20 @@ def func_auto_task():
         sleep(1)
         pass
 
-    vec_array = [[0, -1], [0, 1], [0, 1], [0, -1], [1, 0], [0, -1], [0, -1], [1, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [-1, 0], [0, -1], [0, -1], [0, -1], [1, 0], [1, 0], [0, 1], [0, -1], [0, -1], [0, 1]]
+    vec_array = [[0, -1], [0, 1], [0, 1], [0, -1], [1, 0], [0, -1], [0, -1], [1, 0], [0, 1], [0, 1], [0, 1],
+                 [0, 1], [0, 1], [-1, 0], [0, -1], [0, -1], [0, -1], [1, 0], [1, 0], [0, 1], [0, -1], [0, -1], [0, 1]]
     for vec in vec_array:
         func_move_by_swipe(screen_mid_point, cell_width, vec)
         pass
 
-    ##  中间继续右直行 
+    # 中间继续右直行
     while not exists(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440))):
         swipe(screen_mid_point, vector=[0.1, 0])
         pass
-    touch(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902135599.png", record_pos=(0.01, 0.71), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902133396.png",
+                   record_pos=(-0.209, 0.231), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902135599.png", record_pos=(
+        0.01, 0.71), resolution=(811, 1440)))
     pass
 
 
@@ -109,18 +227,11 @@ def func_auto_task():
 # lookup(, (530, 30, 720, 190))
 
 
-
 # print(loop_find(Template(r"tpl1616404376736.png", record_pos=(0.438, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404431747.png", record_pos=(0.365, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404419462.png", record_pos=(0.324, -0.797), resolution=(720, 1280))))
 
 
-
-
-
-while True:
-    func_auto_task()
-    pass
 
 
 
