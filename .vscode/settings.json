@@ -8,4 +8,9 @@
     "python.formatting.autopep8Args": [
         "--max-line-length=200"
     ],
+    "editor.minimap.enabled": false,
+    "files.exclude": {
+        "**/.history": true
+    },
+    "vsintellicode.features.python.deepLearning": "enabled",
 }

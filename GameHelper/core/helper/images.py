@@ -36,7 +36,7 @@ def get_multi_color(image, points) -> str:
     return list(map(lambda p: get_pixel_color(image, p), points))
 
 
-def find_multi_color_ex(image, threshold: float = 10, points=[]) -> List:
+def find_multi_color_ex(image, threshold: float = 10, points=[]) -> any:
     """匹配多颜色点，并返回首个坐标点
 
     Args:
@@ -50,6 +50,7 @@ def find_multi_color_ex(image, threshold: float = 10, points=[]) -> List:
     for x, y, rgb in points:
         _rgb = get_pixel_color(image, (x, y))
         if ciede2000(lab1=_rgb, lab2=rgb) > threshold:
+            # print("point color not matched. point:{} expect:{}, target:{}, ciede:{}".format((x, y), _rgb, rgb, ciede2000(lab1=_rgb, lab2=rgb)))
             return None
         pass
     return points[0]

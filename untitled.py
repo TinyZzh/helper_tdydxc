@@ -2,6 +2,8 @@
 __author__ = "TinyZ"
 
 
+from GameHelper.core.airtest.cvex import AirImage
+from GameHelper.core.helper.utility import Utility
 from GameHelper.core.helper.nav import Node, NodeEnum
 from GameHelper.core.util.ciede2000 import ciede2000
 from airtest.core.api import *
@@ -9,19 +11,72 @@ from airtest.core.cv import loop_find
 from airtest.aircv import *
 from GameHelper.core.helper.images import get_pixel_color, hex_to_rgb, rgb_to_hex, screen_snapshot
 from tdydxc import *
+import tdydxc_map
 
 
-def snapshot_mini_map():
+def snapshot_mini_map(rect = [532, 8, 712, 188]):
     # 获取小地图截图
     _screen = device().snapshot()
-    return screen_snapshot(_screen, [532, 8, 712, 188])
+    return screen_snapshot(_screen, rect)
+
+# [90*90]图片
+# before_mini_map = snapshot_mini_map([571, 47, 673, 149])
+# Utility.LOGGER.error("匹配结果: %s", AirImage(before_mini_map).match(before_mini_map))
+# aircv.show_origin_size(before_mini_map)
+
+def on_game_move_ex(scene:TdydxcScene, direction: Direction) -> None:
+    key_rect = [48, 48, 116, 116]
+    before_snapshot = snapshot_mini_map()
+    draw_rect_point = scene.get_move_vector(direction)
+    scene.map_draw_rectangle(before_snapshot, draw_rect_point)
+    aircv.show_origin_size(screen_snapshot(before_snapshot, key_rect))
+
+    rel_p = scene.get_screen_point(direction)
+    touch(rel_p)
+    sleep(1)
+    # TODO: 是否弹出交互界面
+
+    # TODO: 判断是否移动成功
+    mini_map = snapshot_mini_map()
+    scene.map_draw_rectangle(mini_map, draw_rect_point)
+    match_result = AirImage(screen_snapshot(before_snapshot, key_rect), rgb=True).match(screen_snapshot(mini_map, key_rect))
+    Utility.LOGGER.error("匹配结果: %s", match_result)
+    aircv.show_origin_size(screen_snapshot(mini_map, key_rect))
+    if match_result:
+        # 移动
+        scene.map_move(mini_map, direction)
+        pass
+    else:
+
+        pass
+
+
+    
+    aircv.show_origin_size(mini_map)
+
+    vec = scene.get_move_vector(direction)
+    after = tdydxc_map.parse_mini_map(mini_map)
+    scene.map_draw_ex(after)
+    w,h = after.shape
+    match = {
+        Direction.TOP:lambda arr:np.delete(arr, 0, axis = 1),
+        Direction.BOTTOM:lambda arr:np.delete(arr, h-1, axis = 1),
+        Direction.LEFT:lambda arr:np.delete(arr, w-1, axis = 0),
+        Direction.RIGHT:lambda arr:np.delete(arr, 0, axis = 0),
+    }
+    rect = match[direction](after)
+    Utility.LOGGER.info("剪切后的小图: %s", direction.name)
+    scene.map_draw_ex(rect)
+    scene.map_draw()
+    aircv.show_origin_size(mini_map)
+    pass
 
 
 def on_game_move(scene: TdydxcScene, direction: Direction):
     # 移动一个格子. 坐标识别比较困难
     rel_p = scene.get_screen_point(direction)
     print("touch point:{}".format(rel_p))
-    _prev_mini_map = scene.parse_mini_map(snapshot_mini_map())
+    _prev_mini_map = tdydxc_map.parse_mini_map(snapshot_mini_map())
     touch(rel_p)
     sleep(1)
     # 根据点击的反馈确定目标类型
@@ -45,16 +100,17 @@ def on_game_move(scene: TdydxcScene, direction: Direction):
             scene.map_discover(direction, NodeEnum.EMPTY)
             pass
         elif exists(Template(r"tpl1617017357016.png", record_pos=(-0.01, -0.032), resolution=(720, 1280))):
+            scene.map_discover(direction, NodeEnum.NEXT_FLOOR)
+            scene.map_move(mini_map, direction)
             if scene.game.is_full_map and not scene.is_map_clean():
-                scene.map_discover(direction, NodeEnum.NEXT_FLOOR)
-                scene.map_move(mini_map, direction)
                 # 先取消进去下一次. 等待全图探索完成, 自动追加下一次按钮
                 touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
                 pass
             else:
                 # 进入下一层. 地图清空，不需要map_discover和map_move
                 touch(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440)))
-                # 等待加载完成
+                # 等待2s, 等加载完成
+                sleep(2)
                 wait(Template(r"tpl1617102958252.png", record_pos=(-0.453, -0.724), resolution=(720, 1280)))
                 scene.game.cur_floor += 1
                 pass
@@ -66,8 +122,9 @@ def on_game_move(scene: TdydxcScene, direction: Direction):
             pass
         elif exists(Template(r"tpl1617202135423.png", record_pos=(-0.044, -0.028), resolution=(720, 1280))):
             # 秘境, 不进.
-            touch(Template(r"tpl1617191310309.png", record_pos=(0.024, 0.693), resolution=(720, 1280)))
+            touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
             scene.map_discover(direction, NodeEnum.SPACE)
+            scene.map_move(mini_map, direction)
             pass
         elif exists(Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280))):
             scene.map_discover(direction, NodeEnum.SHOP)
@@ -80,7 +137,7 @@ def on_game_move(scene: TdydxcScene, direction: Direction):
             scene.map_discover(direction, NodeEnum.EMPTY)
             scene.map_move(mini_map, direction)
             scene.map_draw()
-            scene.get_map_node(mini_map, scene.get_mini_point(direction))
+            scene.get_map_node(mini_map, scene.get_move_vector(direction))
             aircv.show_origin_size(mini_map)
             pass
         pass
@@ -129,10 +186,20 @@ def on_auto_battle() -> None:
             aircv.show_origin_size(mini_map)
             _floor = game.cur_floor
             pass
-        _next = tdydxc.nav_next_point()
-        if not _next:
-            break
-        on_game_move(tdydxc, _next)
+        try:
+            _next = tdydxc.nav_next_point()
+            if not _next:
+                break
+            on_game_move(tdydxc, _next)
+        except Exception as e:
+            if tdydxc:
+                tdydxc.map_draw()
+                pass
+            raise e
+        pass
+    Utility.LOGGER.info("battle end. scene: %s", game.cur_floor)
+    if tdydxc:
+        tdydxc.map_draw()
         pass
     return
 
@@ -230,6 +297,55 @@ def on_auto_kill_boss_task():
 # print(loop_find(Template(r"tpl1616404376736.png", record_pos=(0.438, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404431747.png", record_pos=(0.365, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404419462.png", record_pos=(0.324, -0.797), resolution=(720, 1280))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
