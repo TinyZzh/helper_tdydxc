@@ -48,9 +48,9 @@ def find_multi_color_ex(image, threshold: float = 10, points=[]) -> any:
         List: [description]
     """
     for x, y, rgb in points:
-        _rgb = get_pixel_color(image, (x, y))
-        if ciede2000(lab1=_rgb, lab2=rgb) > threshold:
-            # print("point color not matched. point:{} expect:{}, target:{}, ciede:{}".format((x, y), _rgb, rgb, ciede2000(lab1=_rgb, lab2=rgb)))
+        rgb0 = get_pixel_color(image, (x, y))
+        if ciede2000(lab1=rgb0, lab2=rgb) > threshold:
+            # print("point color not matched. point:{} actual:{}, expect:{}, ciede:{}".format((x, y), rgb_to_hex(rgb0), rgb_to_hex(tuple(rgb)), ciede2000(lab1=rgb0, lab2=rgb)))
             return None
         pass
     return points[0]

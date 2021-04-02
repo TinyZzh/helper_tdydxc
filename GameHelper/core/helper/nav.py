@@ -44,32 +44,9 @@ class Node:
         self.state = state
         pass
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return "({},{},{})".format(self.x, self.y, self.state.name)
 
+    def __iter__(self):
+        return (v for v in [self.x, self.y, self.state])
 
-class Navigation(AStar):
-    # 导航组件. A*寻路. 引入隐藏地图格
-    nodes: List[Node] = []
-
-    def navigate(self, point) -> List[Node]:
-
-        return
-
-    def discover(self, direction: int, data: List[Node]) -> None:
-
-        return
-
-    def has_unknown(self):
-        for n in self.nodes:
-            if n.state == NodeEnum.UNKNOWN:
-                return True
-        return False
-
-class TiredMap:
-
-    pass
-
-
-v= np.zeros((50, 50), np.dtype(np.int8))
-print(v)

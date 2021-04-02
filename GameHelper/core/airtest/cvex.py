@@ -39,7 +39,7 @@ class AirImage(object):
         for method in ST.CVSTRATEGY:
             # get function definition and execute:
             func = cv.MATCHING_METHODS.get(method, None)
-            print("func:{}".format(func))
+            # print("func:{}".format(func))
             if func is None:
                 raise InvalidMatchingMethodError("Undefined method in CVSTRATEGY: '%s', try 'kaze'/'brisk'/'akaze'/'orb'/'surf'/'sift'/'brief' instead." % method)
             else:

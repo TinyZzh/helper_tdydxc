@@ -6,10 +6,8 @@ from enum import IntEnum
 import math
 from typing import List, Tuple
 from GameHelper.core.helper.nav import Node, NodeEnum
-from GameHelper.core.util.ciede2000 import ciede2000
 from airtest.core.api import *
 from airtest.aircv import *
-from GameHelper.core.helper.images import find_multi_color_ex, get_multi_color, get_pixel_color, hex_to_rgb, rgb_to_hex, screen_snapshot
 import numpy as np
 
 
@@ -59,33 +57,20 @@ class TdydxcScene(AStar):
         self.map_draw()
         return self.map_nodes
 
-    def parse_mini_map(self, mini_map, offset=(5, 3)) -> tuple:
-        _nodes = np.zeros([11, 9], dtype=np.int32)
-        for x in range(-5, 6):
-            for y in range(-3, 5):
-                v_node = self.get_map_node(mini_map, (x, y))
-                _r_x = offset[0] + x
-                _r_y = offset[1] + y
-                _nodes[_r_x][_r_y] = v_node.state.value
-                pass
-            pass
-        return _nodes
+    def init_mini_map(self, nodes: List[Node]) -> None:
+        """初始化小地图. 帮助定位游戏坐标和导航.   小地图首行有地图信息遮挡、尾行有随机的大喇叭公告遮挡
 
-    def init_mini_map(self, mini_map) -> None:
-        # 初始化小地图. 帮助定位游戏坐标和导航.   小地图首行有地图信息遮挡、尾行有随机的大喇叭公告遮挡
-        h, w = mini_map.shape[:2]
-        cx = cy = _cp = int(w / 2)
+        Args:
+            nodes (List[Node]): [description]
+        """
+        print(nodes)
         _o_x, _o_y = self.current
-        aircv.mark_point(mini_map, (cx, cy), circle=True, radius=1)
-        for x in range(-5, 6):
-            for y in range(-3, 5):
-                v_node = self.get_map_node(mini_map, (x, y))
-                _r_x = _o_x + x
-                _r_y = _o_y + y
-                self.map_nodes[_r_x][_r_y] = v_node.state.value
-                if self.is_wait_discover_node((_r_x, _r_y)):
-                    self._wait_nodes.append((_r_x, _r_y))
-                    pass
+        for (n_x, n_y, state) in nodes:
+            x = _o_x + n_x
+            y = _o_y + n_y
+            self.map_nodes[x][y] = state.value
+            if self.is_wait_discover_node((x, y)):
+                self._wait_nodes.append((x, y))
                 pass
             pass
         # 中心是玩家当前位置
@@ -137,86 +122,8 @@ class TdydxcScene(AStar):
         else:
             # 其他情况, 保险起见加入待查队列
             _rounds = [mn[x-1][y], mn[x+1][y], mn[x][y-1], mn[x][y+1]]
-            print("point:{}, unknown border:{}, result:{}".format(
-                point, _rounds, any(x == NodeEnum.UNKNOWN.value for x in _rounds)))
+            # print("point:{}, unknown border:{}, result:{}".format(point, _rounds, any(x == NodeEnum.UNKNOWN.value for x in _rounds)))
             return True
-
-    def get_click_point(self, direction: Direction) -> Node:
-        p = tuple(self.current + self.get_move_vector(direction))
-        return Node(p[0], p[1], NodeEnum(self.map_nodes[p[0], p[1]]))
-
-    def get_move_vector(self, direction: Direction) -> tuple:
-        if direction == Direction.TOP:
-            return np.array([0, -1])
-        elif direction == Direction.BOTTOM:
-            return np.array([0, 1])
-        elif direction == Direction.RIGHT:
-            return np.array([1, 0])
-        else:
-            return np.array([-1, 0])
-
-    def _map_p(self, v) -> int:
-        # 根据中心点(90, 90)和相对坐标，计算屏幕位置  分辨率:[720, 1280]
-        return 90 + 17 * v
-
-    def map_draw_rectangle(self, image, point) -> any:
-        _p_x, _p_y = point
-        x = self._map_p(_p_x)
-        y = self._map_p(_p_y)
-        self.__logger.info("%s, %s", (x-8, y-8), (x+8, y+8))
-        # 255：蓝色
-        cv2.rectangle(image, (x-8, y-8), (x+8, y+8), 0, -1)
-        return image
-
-    def _map_multi_point(self, point) -> int:
-        # [中, 上, 左, 右]
-        _p_x, _p_y = point
-        x = self._map_p(_p_x)
-        y = self._map_p(_p_y)
-        return [(x, y), (x, y - 5), (x-2, y+2), (x+2, y+2)]
-
-    def get_map_node(self, mini_map, point) -> Node:
-        # 识别根据小地图. 识别地图点.
-        x, y = point
-        _p_x = self._map_p(x)
-        _p_y = self._map_p(y)
-        try:
-            _cell = None
-            # self.__logger.info("rgb:{}, black like:{}".format(_rgb, ciede2000(lab1=_rgb, lab2=_black)))
-            _multi_points = self._map_multi_point(point)
-            _kps = {
-                '黑  色': (['#000000', '#000000', '#000000', '#000000'], NodeEnum.WALL),
-                '空  地': (['#1B3A42', '#1B3A42', '#1B3A42', '#1B3A42'], NodeEnum.EMPTY),
-                'BUFF ': (['#15272b', '#123038', '#b6c5cc', '#90929f'], NodeEnum.CLICK_BLOCK),
-                '木  箱': (['#8e6048', '#212e1a', '#704c40', '#83685d'], NodeEnum.CLICK_BLOCK),
-                # '木  箱': (['#896742', '#0f0a11', '#a5715b', '#945b54'], NodeEnum.CLICK_BLOCK),
-                '宝  箱': (['#461e00', '#3d3006', '#b2945e', '#ad966d'], NodeEnum.CLICK_BLOCK),
-                '宝  箱': (['#461e00', '#3d3006', '#b2945e', '#ad966d'], NodeEnum.CLICK_BLOCK),
-                '宝  箱': (['#855d3a', '#000a0d', '#94655d', '#815c4a'], NodeEnum.CLICK_BLOCK),
-                # '宝石罐': (['#6f3215'], NodeEnum.CLICK_BLOCK),
-                # '秘  境': (['#25628f', '#638390', '#2d4b63', '#29414b'], NodeEnum.SPACE),
-                '秘  境': (['#486b93', '#6e8a96', '#3c6488', '#344e5f'], NodeEnum.SPACE),
-            }
-            for v_clr_hex, v_state in _kps.values():
-                clr_points = [(_multi_points[i][0], _multi_points[i][1], hex_to_rgb(v_clr_hex[i])) for i in range(len(_multi_points))]
-                # self.__logger.debug("xxx: {} - {} - {}".format(v_clr_hex, v_state, clr_points))
-                if find_multi_color_ex(mini_map, points=clr_points, threshold=15):
-                    _cell = v_state
-                    # self.__logger.debug("match point:{}, rgb:{}, state:{}".format(point, v_clr_hex, v_state))
-                    break
-                pass
-            if not _cell:
-                # 未知的点, 直接认为可点击
-                self.__logger.debug("not sure node type. p:{}, rgb:{}, ".format(point, list(map(rgb_to_hex, get_multi_color(mini_map, _multi_points)))))
-                _cell = NodeEnum.CLICK
-                pass
-            aircv.mark_point(mini_map, (_p_x, _p_y), radius=1)
-            pass
-        except Exception as e:
-            self.__logger.error("get_map_node. msg:{}. point:{}, map:[{}, {}]".format(e, point, _p_x, _p_y))
-            # aircv.show_origin_size(mini_map)
-            raise e
-        return Node(x, y, _cell)
 
     def map_move(self, nodes: List[Node], direction: Direction) -> None:
         """游戏移动
@@ -226,7 +133,7 @@ class TdydxcScene(AStar):
             direction (Direction): [方向]
         """
         # 移动之后, 同步坐标，同步小地图信息
-        self.current += self.get_move_vector()
+        self.current += self.get_move_vector(direction)
         self.__logger.info("after move current point:{}".format(self.current))
         if nodes:
             _o_x, _o_y = self.current
@@ -254,6 +161,8 @@ class TdydxcScene(AStar):
         npcs = [NodeEnum.EMPTY, NodeEnum.NEXT_FLOOR, NodeEnum.SHOP, NodeEnum.ALTAR]
         if state in npcs and (n.x, n.y) in self._wait_nodes:
             self._wait_nodes.remove((n.x, n.y))
+            self.__logger.info("after discover: wait nodes: %s", self._wait_nodes)
+            pass
         return
 
     def map_draw(self) -> None:
@@ -268,21 +177,8 @@ class TdydxcScene(AStar):
             _display = (self.map_nodes[_min_x:_max_x, _min_y: _max_y]).copy()
             _display[self.current[0] - _min_x, self.current[1] - _min_y] = NodeEnum.PLAYER.value
             _display[51 - _min_x, 51 - _min_y] = NodeEnum.ORIGIN.value
-            # 翻转xy轴. 输出更直观的显示表格
-            _display = np.swapaxes(_display, 0, 1)
-
-            def map_icon(v) -> str:
-                if v == NodeEnum.ORIGIN.value:
-                    return "##"
-                elif v == NodeEnum.PLAYER.value:
-                    return "&&"
-                elif v not in [NodeEnum.UNKNOWN.value, NodeEnum.WALL.value]:
-                    return "{:_>2d}".format(v)
-                else:
-                    return "__"
-                pass
             self.__logger.info("scene map:")
-            list(map(lambda row: self.__logger.info("|".join(map(map_icon, row))), _display))
+            self.map_draw_ex(_display)
             pass
         if self._wait_nodes:
             self.__logger.info("scene wait node:{}".format(self._wait_nodes))
@@ -290,6 +186,7 @@ class TdydxcScene(AStar):
         pass
 
     def map_draw_ex(self, display) -> None:
+        # 翻转xy轴. 输出更直观的显示表格
         display = np.swapaxes(display, 0, 1)
 
         def map_icon(v) -> str:
@@ -304,6 +201,20 @@ class TdydxcScene(AStar):
             pass
         list(map(lambda row: self.__logger.info("|".join(map(map_icon, row))), display))
         pass
+
+    def get_click_point(self, direction: Direction) -> Node:
+        p = tuple(self.current + self.get_move_vector(direction))
+        return Node(p[0], p[1], NodeEnum(self.map_nodes[p[0], p[1]]))
+
+    def get_move_vector(self, direction: Direction) -> tuple:
+        if direction == Direction.TOP:
+            return np.array([0, -1])
+        elif direction == Direction.BOTTOM:
+            return np.array([0, 1])
+        elif direction == Direction.RIGHT:
+            return np.array([1, 0])
+        else:
+            return np.array([-1, 0])
 
     def get_screen_point(self, direction: Direction) -> tuple:
         """获取方向获取屏幕中点击的点坐标
@@ -336,9 +247,15 @@ class TdydxcScene(AStar):
             nodes that can be reached (=any adjacent coordinate that is not a wall)
         """
         x, y = node
-        unreachable = [NodeEnum.WALL.value, NodeEnum.UNKNOWN.value, NodeEnum.ALTAR.value]
-        return [(nx, ny) for nx, ny in [(
-            x, y - 1), (x, y + 1), (x - 1, y), (x + 1, y)]if self.map_nodes[nx][ny] not in unreachable]
+        
+        def reachable(x, y):
+            unreachable = [NodeEnum.WALL.value, NodeEnum.UNKNOWN.value]
+            # , NodeEnum.ALTAR.value
+            # if self.map_nodes[x][y] == NodeEnum.NEXT_FLOOR.value and self.game.is_full_map:
+            #     return self.is_map_clean()
+            return self.map_nodes[x][y] not in unreachable
+
+        return [(nx, ny) for nx, ny in [(x, y - 1), (x, y + 1), (x - 1, y), (x + 1, y)]if reachable(x, y)]
 
     def lookup_path(self, start, goal) -> List:
         """寻路算法
