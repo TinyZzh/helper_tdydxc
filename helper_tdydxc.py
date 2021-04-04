@@ -19,6 +19,22 @@ tdydxc_conf = {
 }
 
 
+class HandleResult(object):
+
+    match_pos = None
+    # 图片识别匹配命中的坐标
+    moved = False
+    # 是否发生移动
+
+    def __init__(self, match_pos, moved) -> None:
+        self.match_pos = match_pos
+        self.moved = moved
+        pass
+
+    def __repr__(self) -> str:
+        return "HandleResult. pos:{}, moved:{}".format(self.match_pos, self.moved)
+
+
 def snapshot_mini_map(rect=[532, 8, 712, 188]):
     # 获取小地图截图
     _screen = device().snapshot()
@@ -37,6 +53,7 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
     touch(rel_p)
     # note: 点击之后，模拟器卡顿后。会导致本次识别是否移动错误
     sleep(scene.game.game_touch_sleep)
+    hr = None
     # 是否弹出交互界面
     node = scene.get_click_point(direction)
     Utility.LOGGER.info("start move. current:%s, click:%s", scene.current, node)
@@ -52,57 +69,57 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
         ]
         _kw = {}
         for h in handlers:
-            if h(scene, direction, image=before_snapshot, has_dialog=_kw.get('has_dialog')):
+            hr = h(scene, direction, image=before_snapshot)
+            if hr:
                 Utility.LOGGER.info("handle event:%s, direction:%s", h, direction)
                 break
-            if 'has_dialog' not in _kw:
-                # TODO: 优化弹窗面板的判断逻辑.
-                # _kw['has_dialog'] = False if exists(Template(r"tpl1617102958252.png", record_pos=(-0.453, -0.724), resolution=(720, 1280), rgb=True)) else True
-                _kw['has_dialog'] = True
-                # print(_kw['has_dialog'])
-                # aircv.show_origin_size(before_snapshot)
-                pass
             pass
         pass
     elif node.state == NodeEnum.NEXT_FLOOR:
-        on_handle_next_floor(scene, direction, has_dialog=True)
+        on_handle_next_floor(scene, direction)
         pass
     elif node.state == NodeEnum.ALTAR:
-        on_handle_altar(scene, direction, has_dialog=True)
+        on_handle_altar(scene, direction)
+        pass
+    elif node.state == NodeEnum.SPACE:
+        on_handle_sercet_space(scene, direction)
         pass
     elif node.state == NodeEnum.GOLD_KEY_BOX:
-        on_handle_gold_box(scene, direction, has_dialog=True)
+        on_handle_gold_box(scene, direction)
         pass
 
-    # 判断是否移动成功
-    # 地图点变化超过6个， 判定为已移动
-    def is_player_moved(orogin_nodes, count) -> any:
-        img = snapshot_mini_map()
-        cur_nodes = tdydxc_map.parse_mini_map(img)
-        w, h = orogin_nodes.shape
-        if scene.game.is_debug:
-            scene.map_draw_ex(orogin_nodes)
-            scene.map_draw_ex(cur_nodes)
+    check_moved = False if isinstance(hr, HandleResult) and not hr.moved else True
+    if check_moved:
+        # 判断是否移动成功
+        # 地图点变化超过6个， 判定为已移动
+        def is_player_moved(orogin_nodes, count) -> any:
+            img = snapshot_mini_map()
+            cur_nodes = tdydxc_map.parse_mini_map(img)
+            w, h = orogin_nodes.shape
+            if scene.game.is_debug:
+                scene.map_draw_ex(orogin_nodes)
+                scene.map_draw_ex(cur_nodes)
+                pass
+            diff = sum([1 if orogin_nodes[i][j] != cur_nodes[i][j] else 0 for i in range(w) for j in range(h)])
+            Utility.LOGGER.error("地图差异情况统计：diff:%s, shape:%s, index:%d", diff, (w, h), (count+1))
+            if diff < 5:
+                return None
+            return img
+
+        before_nodes = tdydxc_map.parse_mini_map(before_snapshot)
+        after_snapshot = None
+        for i in range(scene.game.game_not_moved_recheck_count):
+            after_snapshot = is_player_moved(before_nodes, i)
+            if after_snapshot is not None:
+                break
+            # 等待2s后再校验一次.
+            sleep(scene.game.game_operation_delay)
+            log("tdydxc. current:{}, click:{}".format(scene.current, node), timestamp=time.time(), desc="判断是否移动", snapshot=True)
             pass
-        diff = sum([1 if orogin_nodes[i][j] != cur_nodes[i][j] else 0 for i in range(w) for j in range(h)])
-        Utility.LOGGER.error("地图差异情况统计：diff:%s, shape:%s, index:%d", diff, (w, h), (count+1))
-        if diff < 5:
-            return None
-        return img
-
-    before_nodes = tdydxc_map.parse_mini_map(before_snapshot)
-    after_snapshot = None
-    for i in range(scene.game.game_not_moved_recheck_count):
-        after_snapshot = is_player_moved(before_nodes, i)
         if after_snapshot is not None:
-            break
-        # 等待2s后再校验一次.
-        sleep(2)
-        log("tdydxc. current:{}, click:{}".format(scene.current, node), timestamp=time.time(), desc="判断是否移动", snapshot=True)
-        pass
-    if after_snapshot is not None:
-        # 等待移动完成. 优化一下判断逻辑. 有可能卡住导致移动失败
-        scene.map_move(tdydxc_map.map_node_recognition_with_direction(after_snapshot, direction), direction)
+            # 等待移动完成. 优化一下判断逻辑. 有可能卡住导致移动失败
+            scene.map_move(tdydxc_map.map_node_recognition_with_direction(after_snapshot, direction), direction)
+            pass
         pass
 
     scene.map_draw()
@@ -117,7 +134,7 @@ def on_handle_battle(scene: TdydxcScene, direction: Direction, *args, **kwargs) 
         # 有可能出现秒杀，耗时短, 必须优先判断
         on_game_battle(scene)
         scene.map_discover(direction, NodeEnum.EMPTY)
-        pass
+        return HandleResult(pos, False)
     return pos
 
 
@@ -143,7 +160,11 @@ def on_handle_basic_dialog(tpl_wait: Template, func_suc, func_fail=None, lmt_ope
             if lmt_operate_count < 0 or op_count < lmt_operate_count:
                 op_count += 1
                 if ret:
-                    func_suc()
+                    hr = func_suc()
+                    if hr and isinstance(hr, HandleResult):
+                        hr.match_pos = ret
+                        ret = hr
+                        pass
                     pass
                 else:
                     if func_fail:
@@ -157,7 +178,7 @@ def on_handle_basic_dialog(tpl_wait: Template, func_suc, func_fail=None, lmt_ope
     return ret
 
 
-def on_handle_next_floor(scene: TdydxcScene, direction: Direction, has_dialog=None, *args, **kwargs) -> any:
+def on_handle_next_floor(scene: TdydxcScene, direction: Direction, *args, **kwargs) -> any:
     tpl = Template(r"tpl1617017357016.png", record_pos=(-0.01, -0.032), resolution=(720, 1280))
 
     def func_suc() -> None:
@@ -250,7 +271,6 @@ def on_game_battle(scene: TdydxcScene) -> None:
         # TODO: 判断是否需要使用技能
         sleep(scene.game.game_operation_delay)
         pass
-    sleep(scene.game.game_operation_delay)
     return
 
 
@@ -270,7 +290,7 @@ def on_auto_battle() -> None:
             mini_map = snapshot_mini_map()
             tdydxc.init_mini_map(tdydxc_map.generate_mini_map(mini_map, mark=True))
             tdydxc.game = game
-            aircv.show_origin_size(mini_map)
+            # aircv.show_origin_size(mini_map)
             tdydxc.map_draw()
             _floor = game.cur_floor
             pass
@@ -385,3 +405,6 @@ def on_battle_change_bonfire() -> None:
 # print(loop_find(Template(r"tpl1616404376736.png", record_pos=(0.438, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404431747.png", record_pos=(0.365, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404419462.png", record_pos=(0.324, -0.797), resolution=(720, 1280))))
+
+
+

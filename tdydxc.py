@@ -33,7 +33,7 @@ class TdydxcGame:
     game_touch_sleep = 2
     # 点击之后等到游戏响应的时间
     game_operation_delay = 1
-    # 游戏内通用操作延迟. 1s 
+    # 游戏内通用操作延迟. 1s
     game_auto_open_gold_key_box = False
     # 是否自动打开金钥匙箱子
     buy_shop_item_list = []
@@ -61,6 +61,8 @@ class TdydxcScene(AStar):
     def __init__(self) -> None:
         # 初始化[50*50]地图格子
         self.map_nodes = np.zeros((101, 101), np.dtype(np.int8))
+        self.current = np.array([51, 51])
+        self._wait_nodes = []
         pass
 
     def get_nodes(self):
@@ -171,7 +173,7 @@ class TdydxcScene(AStar):
         n: Node = self.get_click_point(direction)
         self.map_nodes[n.x][n.y] = state.value
         # 以探索的节点， 移除掉探索点
-        npcs = [NodeEnum.EMPTY, NodeEnum.NEXT_FLOOR, NodeEnum.SHOP, NodeEnum.ALTAR, NodeEnum.GOLD_KEY_BOX]
+        npcs = [NodeEnum.EMPTY, NodeEnum.NEXT_FLOOR, NodeEnum.SHOP, NodeEnum.ALTAR, NodeEnum.SPACE, NodeEnum.GOLD_KEY_BOX]
         if state in npcs and (n.x, n.y) in self._wait_nodes:
             self._wait_nodes.remove((n.x, n.y))
             self.__logger.info("after discover: wait nodes: %s", self._wait_nodes)
@@ -187,12 +189,17 @@ class TdydxcScene(AStar):
             _min_y = int(min(_nodes, key=lambda n: n[1])[1] - 1)
             _max_y = int(max(_nodes, key=lambda n: n[1])[1] + 2)
             # 有效区域内的点
-            _display = (self.map_nodes[_min_x:_max_x, _min_y: _max_y]).copy()
-            _display[self.current[0] - _min_x, self.current[1] - _min_y] = NodeEnum.DISPLAY_PLAYER.value
-            _display[51 - _min_x, 51 - _min_y] = NodeEnum.DISPLAY_ORIGIN.value
-            _dw = [(x-_min_x, y - _min_y) for x, y in self._wait_nodes]
-            self.__logger.info("scene detail info. current:%s, wait nodes:%s, map:", self.current, self._wait_nodes)
-            self.map_draw_ex(_display, _dw)
+            try:
+                _display = (self.map_nodes[_min_x:_max_x, _min_y: _max_y]).copy()
+                _display[self.current[0] - _min_x, self.current[1] - _min_y] = NodeEnum.DISPLAY_PLAYER.value
+                _display[51 - _min_x, 51 - _min_y] = NodeEnum.DISPLAY_ORIGIN.value
+                _dw = [(x-_min_x, y - _min_y) for x, y in self._wait_nodes]
+                self.__logger.info("scene detail info. current:%s, wait nodes:%s, map:", self.current, self._wait_nodes)
+                self.map_draw_ex(_display, _dw)
+            except Exception as e:
+                self.__logger.error("map draw failed. detail info. current:%s, init nodes:%s, rect:[%s, %s]", self.current, _nodes, (_min_x, _min_y), (_max_x, _max_y))
+                self.map_draw_ex(_display)
+                raise e
             pass
         pass
 
