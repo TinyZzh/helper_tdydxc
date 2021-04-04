@@ -178,44 +178,41 @@ def on_handle_next_floor(scene: TdydxcScene, direction: Direction, has_dialog=No
     return on_handle_basic_dialog(tpl, func_suc)
 
 
-def on_handle_altar(scene: TdydxcScene, direction: Direction, has_dialog=None, *args, **kwargs) -> None:
-    if not has_dialog:
-        return None
-    pos = exists(Template(r"tpl1617191129012.png", record_pos=(0.011, -0.325), resolution=(720, 1280)))
-    if pos:
+def on_handle_altar(scene: TdydxcScene, direction: Direction, *args, **kwargs) -> None:
+    tpl = Template(r"tpl1617191129012.png", record_pos=(0.011, -0.325), resolution=(720, 1280))
+
+    def func_suc() -> None:
         # 祭坛  TODO: 直接退出
         # if exists(Template(r"tpl1617191352726.png", rgb=True, record_pos=(0.0, 0.321), resolution=(720, 1280))):
         touch(Template(r"tpl1617191310309.png", record_pos=(0.024, 0.693), resolution=(720, 1280)))
         scene.map_discover(direction, NodeEnum.ALTAR)
         pass
-    return pos
+    return on_handle_basic_dialog(tpl, func_suc)
 
 
-def on_handle_sercet_space(scene: TdydxcScene, direction: Direction, has_dialog=None, *args, **kwargs) -> None:
-    if not has_dialog:
-        return None
-    pos = exists(Template(r"tpl1617202135423.png", record_pos=(-0.044, -0.028), resolution=(720, 1280)))
-    if pos:
+def on_handle_sercet_space(scene: TdydxcScene, direction: Direction, *args, **kwargs) -> None:
+    tpl = Template(r"tpl1617202135423.png", record_pos=(-0.044, -0.028), resolution=(720, 1280))
+
+    def func_suc() -> None:
         # 秘境, 不进.
         touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
         scene.map_discover(direction, NodeEnum.SPACE)
         pass
-    return pos
+    return on_handle_basic_dialog(tpl, func_suc)
 
 
-def on_handle_shop(scene: TdydxcScene, direction: Direction, has_dialog=None, *args, **kwargs) -> None:
-    if not has_dialog:
-        return None
-    pos = exists(Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280)))
-    if pos:
+def on_handle_shop(scene: TdydxcScene, direction: Direction, *args, **kwargs) -> None:
+    tpl = Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280))
+
+    def func_suc() -> None:
         scene.map_discover(direction, NodeEnum.SHOP)
         # 商店 - "退出"按钮  - TODO: 购买药瓶等逻辑
         touch(Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280)))
         pass
-    return pos
+    return on_handle_basic_dialog(tpl, func_suc)
 
 
-def on_handle_gold_box(scene: TdydxcScene, direction: Direction, has_dialog=None, *args, **kwargs) -> None:
+def on_handle_gold_box(scene: TdydxcScene, direction: Direction, *args, **kwargs) -> None:
     tpl = Template(r"tpl1617471061654.png", record_pos=(0.097, -0.022), resolution=(720, 1280))
 
     def func_suc() -> None:
@@ -251,9 +248,9 @@ def on_game_battle(scene: TdydxcScene) -> None:
     # 等待战斗结束
     while exists(btn_giveup):
         # TODO: 判断是否需要使用技能
-        sleep(1)
+        sleep(scene.game.game_operation_delay)
         pass
-    sleep(1)
+    sleep(scene.game.game_operation_delay)
     return
 
 
@@ -316,69 +313,69 @@ def on_battle_change_bonfire() -> None:
     pass
 
 
-def on_auto_kill_boss_task():
-    """自动挑战BOSS
-    """
-    touch(Template(r"tpl1616073759155.png",
-                   record_pos=(-0.079, 0.475), resolution=(720, 1280)))
-    touch(Template(r"tpl1615902044737.png", record_pos=(
-        0.295, -0.005), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902046273.png",
-                   record_pos=(-0.04, 0.464), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902047920.png",
-                   record_pos=(-0.204, 0.218), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902050254.png",
-                   record_pos=(-0.033, 0.803), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902052185.png",
-                   record_pos=(-0.033, 0.803), resolution=(811, 1440)))
+# def on_auto_kill_boss_task():
+#     """自动挑战BOSS
+#     """
+#     touch(Template(r"tpl1616073759155.png",
+#                    record_pos=(-0.079, 0.475), resolution=(720, 1280)))
+#     touch(Template(r"tpl1615902044737.png", record_pos=(
+#         0.295, -0.005), resolution=(811, 1440)))
+#     touch(Template(r"tpl1615902046273.png",
+#                    record_pos=(-0.04, 0.464), resolution=(811, 1440)))
+#     touch(Template(r"tpl1615902047920.png",
+#                    record_pos=(-0.204, 0.218), resolution=(811, 1440)))
+#     touch(Template(r"tpl1615902050254.png",
+#                    record_pos=(-0.033, 0.803), resolution=(811, 1440)))
+#     touch(Template(r"tpl1615902052185.png",
+#                    record_pos=(-0.033, 0.803), resolution=(811, 1440)))
 
-    on_battle_change_bonfire()
+#     on_battle_change_bonfire()
 
-    # 计算右中间位置的坐标，两次开始战斗。
-    w, h = device().get_current_resolution()  # 获取手机分辨率
-    screen_mid_point = [0.5*w, 0.5*h]
-    cell_width = w/8
+#     # 计算右中间位置的坐标，两次开始战斗。
+#     w, h = device().get_current_resolution()  # 获取手机分辨率
+#     screen_mid_point = [0.5*w, 0.5*h]
+#     cell_width = w/8
 
-    btn_giveup = Template(r"tpl1616074069208.png",
-                          record_pos=(-0.008, 0.376), resolution=(720, 1280))
-    while not exists(btn_giveup):
-        swipe(screen_mid_point, vector=[0.3, 0.0015])
-        sleep(1)
-        pass
-    # 等待战斗结束
-    while exists(btn_giveup):
-        sleep(3)
-        pass
+#     btn_giveup = Template(r"tpl1616074069208.png",
+#                           record_pos=(-0.008, 0.376), resolution=(720, 1280))
+#     while not exists(btn_giveup):
+#         swipe(screen_mid_point, vector=[0.3, 0.0015])
+#         sleep(1)
+#         pass
+#     # 等待战斗结束
+#     while exists(btn_giveup):
+#         sleep(3)
+#         pass
 
-    sleep(2)
-    # 拾取战利品
+#     sleep(2)
+#     # 拾取战利品
 
-    # touch([0.5*w + 0.125*w, 0.5*h + 0.125*h])#点击手机中心位置
-    print("mid point:", screen_mid_point)
-    print("cell_width:", cell_width)
+#     # touch([0.5*w + 0.125*w, 0.5*h + 0.125*h])#点击手机中心位置
+#     print("mid point:", screen_mid_point)
+#     print("cell_width:", cell_width)
 
-    def func_move_by_swipe(point, cell_width, vec):
-        p = (point[0] + vec[0] * cell_width, point[1] + vec[1] * cell_width)
-        print("touch point:",  p)
-        touch(p)
-        sleep(1)
-        pass
+#     def func_move_by_swipe(point, cell_width, vec):
+#         p = (point[0] + vec[0] * cell_width, point[1] + vec[1] * cell_width)
+#         print("touch point:",  p)
+#         touch(p)
+#         sleep(1)
+#         pass
 
-    vec_array = [[0, -1], [0, 1], [0, 1], [0, -1], [1, 0], [0, -1], [0, -1], [1, 0], [0, 1], [0, 1], [0, 1],
-                 [0, 1], [0, 1], [-1, 0], [0, -1], [0, -1], [0, -1], [1, 0], [1, 0], [0, 1], [0, -1], [0, -1], [0, 1]]
-    for vec in vec_array:
-        func_move_by_swipe(screen_mid_point, cell_width, vec)
-        pass
+#     vec_array = [[0, -1], [0, 1], [0, 1], [0, -1], [1, 0], [0, -1], [0, -1], [1, 0], [0, 1], [0, 1], [0, 1],
+#                  [0, 1], [0, 1], [-1, 0], [0, -1], [0, -1], [0, -1], [1, 0], [1, 0], [0, 1], [0, -1], [0, -1], [0, 1]]
+#     for vec in vec_array:
+#         func_move_by_swipe(screen_mid_point, cell_width, vec)
+#         pass
 
-    # 中间继续右直行
-    while not exists(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440))):
-        swipe(screen_mid_point, vector=[0.1, 0])
-        pass
-    touch(Template(r"tpl1615902133396.png",
-                   record_pos=(-0.209, 0.231), resolution=(811, 1440)))
-    touch(Template(r"tpl1615902135599.png", record_pos=(
-        0.01, 0.71), resolution=(811, 1440)))
-    pass
+#     # 中间继续右直行
+#     while not exists(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440))):
+#         swipe(screen_mid_point, vector=[0.1, 0])
+#         pass
+#     touch(Template(r"tpl1615902133396.png",
+#                    record_pos=(-0.209, 0.231), resolution=(811, 1440)))
+#     touch(Template(r"tpl1615902135599.png", record_pos=(
+#         0.01, 0.71), resolution=(811, 1440)))
+#     pass
 
 
 # 搜索右上角小地图. 确定黑色不可行动的区域.  12*12
@@ -388,4 +385,3 @@ def on_auto_kill_boss_task():
 # print(loop_find(Template(r"tpl1616404376736.png", record_pos=(0.438, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404431747.png", record_pos=(0.365, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404419462.png", record_pos=(0.324, -0.797), resolution=(720, 1280))))
-

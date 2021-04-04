@@ -32,6 +32,8 @@ class TdydxcGame:
     # 默认移动成果， 无法移动需要二次校验. 避免卡顿等误判情况
     game_touch_sleep = 2
     # 点击之后等到游戏响应的时间
+    game_operation_delay = 1
+    # 游戏内通用操作延迟. 1s 
     game_auto_open_gold_key_box = False
     # 是否自动打开金钥匙箱子
     buy_shop_item_list = []
