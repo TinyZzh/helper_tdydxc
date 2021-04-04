@@ -20,16 +20,24 @@ class Direction(IntEnum):
 
 class TdydxcGame:
 
-    # 屏幕中心点坐标
     screen_center_point = None
-    # 游戏坐标格子宽度
+    # 屏幕中心点坐标
     screen_point_cell_width = None
+    # 游戏坐标格子宽度
+    is_full_map = False
     # 全图模式. 有下一层入口时，不进入，等全图刷完
-    is_full_map = True
-    # 商店购买列表
+    is_debug = True
+    # 调试模式. 开启更详细的日志
+    game_not_moved_recheck_count = 2
+    # 默认移动成果， 无法移动需要二次校验. 避免卡顿等误判情况
+    game_touch_sleep = 2
+    # 点击之后等到游戏响应的时间
+    game_auto_open_gold_key_box = False
+    # 是否自动打开金钥匙箱子
     buy_shop_item_list = []
-    # 当前楼层
+    # 商店购买列表
     cur_floor = 1
+    # 当前楼层
 
     def __repr__(self) -> str:
         return "(TdydxcGame: {})".format(self.__dict__)
@@ -63,7 +71,6 @@ class TdydxcScene(AStar):
         Args:
             nodes (List[Node]): [description]
         """
-        print(nodes)
         _o_x, _o_y = self.current
         for (n_x, n_y, state) in nodes:
             x = _o_x + n_x
@@ -94,7 +101,7 @@ class TdydxcScene(AStar):
                     pass
                 pass
             pass
-        _datas = [p[0] for p in sorted(_datas, key=lambda p:p[1], reverse=False)]
+        _datas = [p[0] for p in sorted(set(_datas), key=lambda p:p[1], reverse=False)]
         self._wait_nodes = _datas
         pass
 
@@ -134,12 +141,16 @@ class TdydxcScene(AStar):
         """
         # 移动之后, 同步坐标，同步小地图信息
         self.current += self.get_move_vector(direction)
-        self.__logger.info("after move current point:{}".format(self.current))
+        # self.__logger.info("after move current point:{}".format(self.current))
         if nodes:
             _o_x, _o_y = self.current
             for v_node in nodes:
                 _r_x = _o_x + v_node.x
                 _r_y = _o_y + v_node.y
+                prev_state = self.map_nodes[_r_x][_r_y]
+                if NodeEnum.UNKNOWN.value != prev_state:
+                    self.__logger.info("discovered point:%s. prev:%s, current:%s", (_r_x, _r_y), NodeEnum(prev_state), v_node.state)
+                    continue
                 self.map_nodes[_r_x][_r_y] = v_node.state.value
                 if self.is_wait_discover_node((_r_x, _r_y)):
                     self._wait_nodes.append((_r_x, _r_y))
@@ -158,7 +169,7 @@ class TdydxcScene(AStar):
         n: Node = self.get_click_point(direction)
         self.map_nodes[n.x][n.y] = state.value
         # 以探索的节点， 移除掉探索点
-        npcs = [NodeEnum.EMPTY, NodeEnum.NEXT_FLOOR, NodeEnum.SHOP, NodeEnum.ALTAR]
+        npcs = [NodeEnum.EMPTY, NodeEnum.NEXT_FLOOR, NodeEnum.SHOP, NodeEnum.ALTAR, NodeEnum.GOLD_KEY_BOX]
         if state in npcs and (n.x, n.y) in self._wait_nodes:
             self._wait_nodes.remove((n.x, n.y))
             self.__logger.info("after discover: wait nodes: %s", self._wait_nodes)
@@ -175,29 +186,36 @@ class TdydxcScene(AStar):
             _max_y = int(max(_nodes, key=lambda n: n[1])[1] + 2)
             # 有效区域内的点
             _display = (self.map_nodes[_min_x:_max_x, _min_y: _max_y]).copy()
-            _display[self.current[0] - _min_x, self.current[1] - _min_y] = NodeEnum.PLAYER.value
-            _display[51 - _min_x, 51 - _min_y] = NodeEnum.ORIGIN.value
-            self.__logger.info("scene map:")
-            self.map_draw_ex(_display)
-            pass
-        if self._wait_nodes:
-            self.__logger.info("scene wait node:{}".format(self._wait_nodes))
+            _display[self.current[0] - _min_x, self.current[1] - _min_y] = NodeEnum.DISPLAY_PLAYER.value
+            _display[51 - _min_x, 51 - _min_y] = NodeEnum.DISPLAY_ORIGIN.value
+            _dw = [(x-_min_x, y - _min_y) for x, y in self._wait_nodes]
+            self.__logger.info("scene detail info. current:%s, wait nodes:%s, map:", self.current, self._wait_nodes)
+            self.map_draw_ex(_display, _dw)
             pass
         pass
 
-    def map_draw_ex(self, display) -> None:
+    def map_draw_ex(self, display, wait=[]) -> None:
+        if wait:
+            for i, j in wait:
+                display[i][j] = NodeEnum.DISPLAY_WAIT.value
+                pass
+            pass
         # 翻转xy轴. 输出更直观的显示表格
         display = np.swapaxes(display, 0, 1)
 
         def map_icon(v) -> str:
-            if v == NodeEnum.ORIGIN.value:
+            if v == NodeEnum.DISPLAY_ORIGIN.value:
                 return "##"
-            elif v == NodeEnum.PLAYER.value:
+            elif v == NodeEnum.DISPLAY_PLAYER.value:
                 return "&&"
-            elif v not in [NodeEnum.UNKNOWN.value, NodeEnum.WALL.value]:
-                return "{:_>2d}".format(v)
-            else:
+            elif v == NodeEnum.DISPLAY_WAIT.value:
+                return "-W"
+            elif v == NodeEnum.EMPTY.value:
                 return "__"
+            elif v in [NodeEnum.UNKNOWN.value, NodeEnum.WALL.value]:
+                return "  "
+            else:
+                return "{:_>2d}".format(v)
             pass
         list(map(lambda row: self.__logger.info("|".join(map(map_icon, row))), display))
         pass
@@ -247,9 +265,9 @@ class TdydxcScene(AStar):
             nodes that can be reached (=any adjacent coordinate that is not a wall)
         """
         x, y = node
-        
+
         def reachable(x, y):
-            unreachable = [NodeEnum.WALL.value, NodeEnum.UNKNOWN.value]
+            unreachable = [NodeEnum.WALL.value, NodeEnum.UNKNOWN.value, NodeEnum.ALTAR.value, NodeEnum.GOLD_KEY_BOX.value]
             # , NodeEnum.ALTAR.value
             # if self.map_nodes[x][y] == NodeEnum.NEXT_FLOOR.value and self.game.is_full_map:
             #     return self.is_map_clean()
@@ -281,12 +299,14 @@ class TdydxcScene(AStar):
 
     def nav_next_point(self) -> tuple:
         p = None
-        if self._wait_nodes:
+        if not self.is_map_clean():
             # 下一个探索点
             p = self._wait_nodes[0]
-        else:
+            pass
+        if p is None:
             # 导航到下一层
-            p = np.where(self.map_nodes != NodeEnum.NEXT_FLOOR.value)
+            p = np.where(self.map_nodes == NodeEnum.NEXT_FLOOR.value)
+            self.__logger.error("寻找下一层入口. current:{}, p:{}, nodes:{}".format(self.current, p, self._wait_nodes))
             pass
         if p:
             _path = self.lookup_path(tuple(self.current), p)
@@ -299,6 +319,6 @@ class TdydxcScene(AStar):
                     pass
                 pass
             pass
-        self.__logger.error("未找到下一个行动点. current:{}".format(self.current))
+        self.__logger.error("毁灭性错误：无路可走. current:{}, p:{}, nodes:{}".format(self.current, p, self._wait_nodes))
         return None
     pass

@@ -1,9 +1,9 @@
 {
     "python.analysis.extraPaths": [
-        "F:/Tools/AirtestIDE-win-1.2.8/AirtestIDE/",
+        "F:/工具/AirtestIDE-win-1.2.8/AirtestIDE/",
     ],
     "files.autoSave": "onFocusChange",
-    "python.pythonPath": "D:\\Python3.9\\python.exe",
+    "python.pythonPath": "D:\\Program Files\\Python3\\python.exe",
     "python.languageServer": "Pylance",
     "python.formatting.autopep8Args": [
         "--max-line-length=200"
@@ -13,4 +13,8 @@
         "**/.history": true
     },
     "vsintellicode.features.python.deepLearning": "enabled",
+    "search.exclude": {
+        "logs/": true,
+        "**/.history/": true
+    },
 }
