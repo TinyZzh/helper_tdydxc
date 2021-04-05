@@ -35,6 +35,10 @@ class TdydxcGame:
     game_operation_delay = 1
     # 游戏内通用操作延迟. 1s
     game_auto_open_gold_key_box = False
+
+    game_use_skill_recover_hp = 0.7
+    # 血量低于70%使用技能回血
+
     # 是否自动打开金钥匙箱子
     buy_shop_item_list = []
     # 商店购买列表
