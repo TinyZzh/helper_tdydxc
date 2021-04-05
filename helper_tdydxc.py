@@ -57,6 +57,15 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
     # 是否弹出交互界面
     node = scene.get_click_point(direction)
     Utility.LOGGER.info("start move. current:%s, click:%s", scene.current, node)
+
+    node_handlers = {
+        NodeEnum.NEXT_FLOOR.name: on_handle_next_floor,
+        NodeEnum.ALTAR.name: on_handle_altar,
+        NodeEnum.SPACE.name: on_handle_sercet_space,
+        NodeEnum.GOLD_KEY_BOX.name: on_handle_gold_box,
+        NodeEnum.SHOP.name: on_handle_shop,
+    }
+
     if node.state == NodeEnum.CLICK:
         handlers = [
             on_handle_battle,
@@ -75,17 +84,8 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
                 break
             pass
         pass
-    elif node.state == NodeEnum.NEXT_FLOOR:
-        on_handle_next_floor(scene, direction)
-        pass
-    elif node.state == NodeEnum.ALTAR:
-        on_handle_altar(scene, direction)
-        pass
-    elif node.state == NodeEnum.SPACE:
-        on_handle_sercet_space(scene, direction)
-        pass
-    elif node.state == NodeEnum.GOLD_KEY_BOX:
-        on_handle_gold_box(scene, direction)
+    elif node.state in node_handlers:
+        node_handlers[node.state.name](scene, direction, image=before_snapshot)
         pass
 
     check_moved = False if isinstance(hr, HandleResult) and not hr.moved else True
@@ -96,10 +96,10 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
             img = snapshot_mini_map()
             cur_nodes = tdydxc_map.parse_mini_map(img)
             w, h = orogin_nodes.shape
-            if scene.game.is_debug:
-                scene.map_draw_ex(orogin_nodes)
-                scene.map_draw_ex(cur_nodes)
-                pass
+            # if scene.game.is_debug:
+            #     scene.map_draw_ex(orogin_nodes)
+            #     scene.map_draw_ex(cur_nodes)
+            #     pass
             diff = sum([1 if orogin_nodes[i][j] != cur_nodes[i][j] else 0 for i in range(w) for j in range(h)])
             Utility.LOGGER.error("地图差异情况统计：diff:%s, shape:%s, index:%d", diff, (w, h), (count+1))
             if diff < 5:
@@ -312,25 +312,106 @@ def on_auto_battle() -> None:
     return
 
 
-on_auto_battle()
-aircv.show_origin_size(snapshot_mini_map())
+def on_select_battle_map(mode_id: int, map_id: int, map_diff: int, level: int) -> None:
+    """选中模式战斗
+
+    Args:
+        mode_id (int): [description]
+        map_id (int): [description]
+        map_diff (int): [description]
+        level (int): [description]
+
+    Raises:
+        Exception: [description]
+        Exception: [description]
+        Exception: [description]
+    """
+    # 模式 [初心试炼, 勇者试炼]
+    modes = {
+        1: Template(r"tpl1617543705145.png", record_pos=(0.003, -0.738), resolution=(720, 1280), rgb=True),
+        2: Template(r"tpl1617543657671.png", record_pos=(0.004, -0.744), resolution=(720, 1280), rgb=True),
+    }
+    # 地图 [绿先知，蛇，巨魔挖掘场, 龙骨, 暗夜城堡]
+    maps = {
+        1: Template(r"tpl1617543743636.png", record_pos=(0.268, -0.411), resolution=(720, 1280)),
+        2: Template(r"tpl1617543749731.png", record_pos=(-0.256, -0.182), resolution=(720, 1280)),
+        3: Template(r"tpl1617543758666.png", record_pos=(0.268, 0.028), resolution=(720, 1280)),
+        4: Template(r"tpl1617543763794.png", record_pos=(-0.272, 0.243), resolution=(720, 1280)),
+        5: Template(r"tpl1617543772341.png", record_pos=(0.229, 0.461), resolution=(720, 1280))
+    }
+    # 难度
+    diffs = {
+        1: Template(r"tpl1617543789134.png", record_pos=(-0.001, -0.185), resolution=(720, 1280), rgb=True),
+        2: Template(r"tpl1617543822397.png", record_pos=(-0.001, -0.192), resolution=(720, 1280), rgb=True),
+    }
+
+    # 地图层 [1, 11, 21, 直接boss]
+    levels = {
+        1: Template(r"tpl1617543847863.png", record_pos=(-0.01, -0.013), resolution=(720, 1280)),
+        2: Template(r"tpl1617543857853.png", record_pos=(-0.008, 0.138), resolution=(720, 1280)),
+        3: Template(r"tpl1617543864919.png", record_pos=(0.01, 0.296), resolution=(720, 1280)),
+        4: Template(r"tpl1617543873441.png", record_pos=(0.001, 0.46), resolution=(720, 1280)),
+    }
+    tpl_mode = modes.get(mode_id)
+    if not tpl_mode:
+        raise Exception("tdydxc unsupport mode:{}".format(mode_id))
+    while not exists(Template(r"tpl1617543705145.png", record_pos=(0.003, -0.738), resolution=(720, 1280), rgb=True)):
+        # 滑动切换地图
+        touch(Template(r"tpl1617546891925.png", record_pos=(-0.383, -0.754), resolution=(720, 1280)))
+        sleep(1)
+        pass
+    tpl_map = maps.get(map_id)
+    if not tpl_map:
+        raise Exception("tdydxc unsupport map:{}".format(map_id))
+    touch(tpl_map)
+    tpl_map_diff = diffs.get(map_diff)
+    if not tpl_map_diff:
+        raise Exception("tdydxc unsupport map:{}".format(map_id))
+    while not exists(tpl_map_diff):
+        touch(Template(r"tpl1617543796358.png", record_pos=(0.369, -0.178), resolution=(720, 1280)))
+        pass
+    tpl_lvl = levels.get(level)
+    pos_lvl = exists(tpl_lvl)
+    if pos_lvl:
+        touch(pos_lvl)
+
+        # 挑战BOSS, 出现确认按钮.
+        if level == 4:
+            pos_confirm = exists(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440)))
+            if pos_confirm:
+                touch(pos_confirm)
+                pass
+            pass
+        touch(Template(r"tpl1615902050254.png", record_pos=(-0.033, 0.803), resolution=(811, 1440)))
+        touch(Template(r"tpl1615902052185.png", record_pos=(-0.033, 0.803), resolution=(811, 1440)))
+        pass
+    # 找到合适和地图. 等待加载完成
+    sleep(2)
+    wait(Template(r"tpl1617102958252.png", record_pos=(-0.453, -0.724), resolution=(720, 1280)))
+    sleep(2)
+    return
 
 
 def on_battle_change_bonfire() -> None:
     """调整灯火亮度.
     """
-    touch(Template(r"tpl1615902058574.png", record_pos=(
-        0.438, -0.564), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902058574.png", record_pos=(0.438, -0.564), resolution=(811, 1440)))
 #     while not exists(Template(r"tpl1616159184068.png", rgb=True, record_pos=(0.171, 0.482), resolution=(720, 1280))):
     for x in range(4):
-        touch(Template(r"tpl1615902061934.png", record_pos=(
-            0.163, 0.506), resolution=(811, 1440)))
-        touch(Template(r"tpl1615902063423.png",
-                       record_pos=(-0.183, 0.226), resolution=(811, 1440)))
+        touch(Template(r"tpl1615902061934.png", record_pos=(0.163, 0.506), resolution=(811, 1440)))
+        touch(Template(r"tpl1615902063423.png", record_pos=(-0.183, 0.226), resolution=(811, 1440)))
         pass
-    touch(Template(r"tpl1615902073472.png", record_pos=(
-        0.018, 0.8), resolution=(811, 1440)))
+    touch(Template(r"tpl1615902073472.png", record_pos=(0.018, 0.8), resolution=(811, 1440)))
     pass
+
+
+# touch(Template(r"tpl1616073759155.png", record_pos=(-0.079, 0.475), resolution=(720, 1280)))
+# on_select_battle_map(1, 3, 2, 1)
+# # aircv.show_origin_size(snapshot_mini_map())
+# on_battle_change_bonfire()
+# sleep(3)
+on_auto_battle()
+aircv.show_origin_size(snapshot_mini_map())
 
 
 # def on_auto_kill_boss_task():
@@ -405,6 +486,4 @@ def on_battle_change_bonfire() -> None:
 # print(loop_find(Template(r"tpl1616404376736.png", record_pos=(0.438, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404431747.png", record_pos=(0.365, -0.751), resolution=(720, 1280))))
 # print(loop_find(Template(r"tpl1616404419462.png", record_pos=(0.324, -0.797), resolution=(720, 1280))))
-
-
 
