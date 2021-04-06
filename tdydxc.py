@@ -167,6 +167,33 @@ class TdydxcScene(AStar):
             self._resort_wait_nodes()
         pass
 
+    def map_move_ex(self, nodes: List[Node], direction: Direction) -> None:
+        """游戏移动, 长距离移动. 提高扫图效率
+
+        Args:
+            nodes ([type]): [游戏小地图]
+            direction (Direction): [方向]
+        """
+        # 移动之后, 同步坐标，同步小地图信息
+        self.current += self.get_move_vector(direction)
+        # self.__logger.info("after move current point:{}".format(self.current))
+        if nodes:
+            _o_x, _o_y = self.current
+            for v_node in nodes:
+                _r_x = _o_x + v_node.x
+                _r_y = _o_y + v_node.y
+                prev_state = self.map_nodes[_r_x][_r_y]
+                if NodeEnum.UNKNOWN.value != prev_state:
+                    self.__logger.info("discovered point:%s. prev:%s, current:%s", (_r_x, _r_y), NodeEnum(prev_state), v_node.state)
+                    continue
+                self.map_nodes[_r_x][_r_y] = v_node.state.value
+                if self.is_wait_discover_node((_r_x, _r_y)):
+                    self._wait_nodes.append((_r_x, _r_y))
+                    pass
+                pass
+            self._resort_wait_nodes()
+        pass
+
     def map_discover(self, direction: Direction, state: NodeEnum) -> None:
         """探索坐标点. 宝箱、宝石罐等探索之后需要更新地图信息
 

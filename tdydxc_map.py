@@ -91,7 +91,7 @@ def map_node_recognition(mini_map, point, mark=False) -> Node:
             pass
         if not cell:
             # 未知的点, 直接认为可点击
-            __logger__.debug("not sure node type. p:{}, expect clrs:{}, ".format(point, list(map(rgb_to_hex, get_multi_color(mini_map, feature_points)))))
+            # __logger__.debug("not sure node type. p:{}, expect clrs:{}, ".format(point, list(map(rgb_to_hex, get_multi_color(mini_map, feature_points)))))
             cell = NodeEnum.CLICK
             pass
         pass
