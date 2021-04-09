@@ -30,7 +30,7 @@ class TdydxcGame:
     # 调试模式. 开启更详细的日志
     game_not_moved_recheck_count = 2
     # 默认移动成果， 无法移动需要二次校验. 避免卡顿等误判情况
-    game_touch_sleep = 2
+    game_touch_delay = 1
     # 点击之后等到游戏响应的时间
     game_operation_delay = 1
     # 游戏内通用操作延迟. 1s
@@ -44,6 +44,15 @@ class TdydxcGame:
     # 商店购买列表
     cur_floor = 1
     # 当前楼层
+
+    ###############################################
+    ##             角色信息                  ###
+    ###############################################
+    
+    player_hp = 1.0
+    # 当前血量
+    player_mp = 1.0
+    # 当前魔法
 
     def __repr__(self) -> str:
         return "(TdydxcGame: {})".format(self.__dict__)
@@ -106,6 +115,10 @@ class TdydxcScene(AStar):
                     # 可以寻路到达的点.
                     # 地图未探索完全，导致导航算法无法导航
                     _datas.append((vn, vn_size))
+                    pass
+                else:
+                    # 临时无法抵达的节点. 受限于探索的区域. 默认设置为无限长
+                    _datas.append((vn, sys.maxsize))
                     pass
                 pass
             pass
@@ -192,6 +205,10 @@ class TdydxcScene(AStar):
                     pass
                 pass
             self._resort_wait_nodes()
+        pass
+
+    def map_fix_location(self) -> None:
+
         pass
 
     def map_discover(self, direction: Direction, state: NodeEnum) -> None:
