@@ -10,6 +10,7 @@ from airtest.core.cv import loop_find
 from airtest.aircv import *
 from GameHelper.core.helper.images import get_pixel_color, hex_to_rgb, rgb_to_hex, screen_snapshot
 from tdydxc import *
+import consts
 import tdydxc_map
 
 
@@ -59,7 +60,7 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
     rel_p = scene.get_screen_point(direction)
     touch(rel_p)
     # note: 点击之后，模拟器卡顿后。会导致本次识别是否移动错误
-    sleep(scene.game.game_touch_sleep)
+    sleep(scene.game.game_touch_delay)
     hr = None
     # 是否弹出交互界面
     node = scene.get_click_point(direction)
@@ -93,7 +94,7 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
             pass
         pass
     elif node.state in node_handlers:
-        node_handlers[node.state.name](scene, direction, screen, image=before_snapshot)
+        hr = node_handlers[node.state.name](scene, direction, screen, image=before_snapshot)
         pass
 
     check_moved = False if isinstance(hr, HandleResult) and not hr.moved else True
@@ -197,7 +198,7 @@ def on_handle_next_floor(scene: TdydxcScene, direction: Direction, screen, *args
         if scene.game.is_full_map and not scene.is_map_clean():
             # 取消进入下一次. 等待全图探索完成, 自动追加下一次按钮
             touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
-            pass
+            return HandleResult(None, True)
         else:
             # 进入下一层. 地图清空，不需要map_discover和map_move
             touch(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440)))
@@ -206,7 +207,7 @@ def on_handle_next_floor(scene: TdydxcScene, direction: Direction, screen, *args
             wait(Template(r"tpl1617102958252.png", record_pos=(-0.453, -0.724), resolution=(720, 1280)))
             sleep(2)
             scene.game.cur_floor += 1
-            pass
+            return HandleResult(None, True)
     return on_handle_basic_dialog(tpl, screen, func_suc)
 
 
@@ -217,7 +218,7 @@ def on_handle_altar(scene: TdydxcScene, direction: Direction, screen, *args, **k
         # 祭坛  TODO: 直接退出
         touch(Template(r"tpl1617191310309.png", record_pos=(0.024, 0.693), resolution=(720, 1280)))
         scene.map_discover(direction, NodeEnum.ALTAR)
-        pass
+        return HandleResult(None, False)
     return on_handle_basic_dialog(tpl, screen, func_suc)
 
 
@@ -225,10 +226,10 @@ def on_handle_sercet_space(scene: TdydxcScene, direction: Direction, screen, *ar
     tpl = Template(r"tpl1617202135423.png", record_pos=(-0.044, -0.028), resolution=(720, 1280))
 
     def func_suc() -> None:
-        # 秘境, 不进.
+        # TODO: 秘境, 不进.
         touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
         scene.map_discover(direction, NodeEnum.SPACE)
-        pass
+        return HandleResult(None, True)
     return on_handle_basic_dialog(tpl, screen, func_suc)
 
 
@@ -251,14 +252,13 @@ def on_handle_gold_box(scene: TdydxcScene, direction: Direction, screen, *args, 
             touch(Template(r"tpl1615902133396.png", record_pos=(-0.209, 0.231), resolution=(811, 1440)))
             scene.map_discover(direction, NodeEnum.EMPTY)
             Utility.LOGGER.info("打开箱子.")
-            pass
+            return HandleResult(None, False)
         else:
             # 金箱子 - "取消"按钮  - TODO: 实现使用金钥匙的逻辑
             touch(Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280)))
             scene.map_discover(direction, NodeEnum.GOLD_KEY_BOX)
             Utility.LOGGER.info("取消箱子.")
-            pass
-        pass
+            return HandleResult(None, False)
     return on_handle_basic_dialog(tpl, screen, func_suc)
 
 
@@ -278,8 +278,8 @@ def on_game_battle(scene: TdydxcScene) -> None:
     btn_giveup = Template(r"tpl1616074069208.png", record_pos=(-0.008, 0.376), resolution=(720, 1280))
     # 等待战斗结束
     while True:
-        # TODO: 吃药延迟，会导致误触，导致导航失败
-        # if is_player_hp_low(threshold=0.7):
+        # TODO: 吃药延迟，会导致误触，导致导航失败. 卡顿时，会导致误触
+        # if scene.game.player_hp < 0.7:
         #     # 中心点(360)
         #     touch((410, 1050))
         #     pass
@@ -288,6 +288,9 @@ def on_game_battle(scene: TdydxcScene) -> None:
         # TODO: 判断是否需要使用技能
         sleep(scene.game.game_operation_delay)
         pass
+    # 同步血量信息
+    scene.game.player_hp = get_current_hp()
+
     return
 
 
@@ -517,6 +520,4 @@ def is_player_hp_low(threshold=0.7) -> bool:
     hp = get_current_hp()
     Utility.LOGGER.debug("current hp:%s", hp)
     return hp <= threshold
-
-
 
