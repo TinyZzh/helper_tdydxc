@@ -14,19 +14,6 @@ import consts
 import tdydxc_map
 
 
-class Tx(object):
-
-    RES_IDENTIFY = {
-
-    }
-
-    RES = {
-
-    }
-
-    pass
-
-
 class HandleResult(object):
 
     match_pos = None
@@ -67,11 +54,11 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
     Utility.LOGGER.info("start move. current:%s, click:%s", scene.current, node)
 
     node_handlers = {
-        NodeEnum.NEXT_FLOOR.name: on_handle_next_floor,
-        NodeEnum.ALTAR.name: on_handle_altar,
-        NodeEnum.SPACE.name: on_handle_sercet_space,
-        NodeEnum.GOLD_KEY_BOX.name: on_handle_gold_box,
-        NodeEnum.SHOP.name: on_handle_shop,
+        NodeEnum.NEXT_FLOOR: on_handle_next_floor,
+        NodeEnum.ALTAR: on_handle_altar,
+        NodeEnum.SPACE: on_handle_sercet_space,
+        NodeEnum.GOLD_KEY_BOX: on_handle_gold_box,
+        NodeEnum.SHOP: on_handle_shop,
     }
 
     screen = device().snapshot()
@@ -94,7 +81,7 @@ def on_game_move_ex2(scene: TdydxcScene, direction: Direction) -> None:
             pass
         pass
     elif node.state in node_handlers:
-        hr = node_handlers[node.state.name](scene, direction, screen, image=before_snapshot)
+        hr = node_handlers[node.state](scene, direction, screen, image=before_snapshot)
         pass
 
     check_moved = False if isinstance(hr, HandleResult) and not hr.moved else True
@@ -279,10 +266,10 @@ def on_game_battle(scene: TdydxcScene) -> None:
     # 等待战斗结束
     while True:
         # TODO: 吃药延迟，会导致误触，导致导航失败. 卡顿时，会导致误触
-        # if scene.game.player_hp < 0.7:
-        #     # 中心点(360)
-        #     touch((410, 1050))
-        #     pass
+        if scene.game.player_hp < 0.7:
+            # 中心点(360)
+            touch((410, 1050))
+            pass
         if not exists(btn_giveup):
             break
         # TODO: 判断是否需要使用技能
@@ -368,7 +355,7 @@ def on_select_battle_map(mode_id: int, map_id: int, map_diff: int, level: int) -
 
     # 地图层 [1, 11, 21, 直接boss]
     levels = {
-        1: Template(r"tpl1617543847863.png", record_pos=(-0.01, -0.013), resolution=(720, 1280)),
+        1: consts.tx.TPL_MAP_LEVEL_1,
         2: Template(r"tpl1617543857853.png", record_pos=(-0.008, 0.138), resolution=(720, 1280)),
         3: Template(r"tpl1617543864919.png", record_pos=(0.01, 0.296), resolution=(720, 1280)),
         4: Template(r"tpl1617543873441.png", record_pos=(0.001, 0.46), resolution=(720, 1280)),

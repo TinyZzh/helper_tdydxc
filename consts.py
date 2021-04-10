@@ -13,7 +13,7 @@ class Consts(object):
     TPL_BTN_CANCEL = Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280))
     """取消按钮
     """
-    TPL_BTN_QUIT = Template(r"tpl1617101341321.png", record_pos=(0.206, 0.242), resolution=(720, 1280))
+    TPL_BTN_QUIT = Template(r"tpl1617017094719.png", record_pos=(0.29, 0.811), resolution=(720, 1280))
     """退出按钮
     """
     TPL_MAP_1 = Template(r"tpl1617543743636.png", record_pos=(0.268, -0.411), resolution=(720, 1280))
@@ -49,6 +49,15 @@ class Consts(object):
     TPL_MAP_LEVEL_4 =  Template(r"tpl1617543873441.png", record_pos=(0.001, 0.46), resolution=(720, 1280)),
     """直接BOSS
     """
+    TPL_BTN_DEAMON = Template(r"tpl1617967101137.png", record_pos=(-0.037, 0.311), resolution=(720, 1280))
+    """怪兽岛 - 钻石按钮 50钻
+    """
+    TPL_PANEL_PAY_DEADOM_FOR_EGGS = Template(r"tpl1617967085152.png", record_pos=(0.003, -0.419), resolution=(720, 1280))   
+    """面板 - 怪兽岛 最后一层支付钻石
+    """
+    TPL_PANEL_GO_BACK_TOWN = Template(r"tpl1617967149344.png", record_pos=(0.001, -0.032), resolution=(720, 1280))
+    """面板 - 回到小镇
+    """
 
 
     def __setattr__(self, name, value):
@@ -60,3 +69,4 @@ class Consts(object):
         pass
 
 tx = Consts()
+

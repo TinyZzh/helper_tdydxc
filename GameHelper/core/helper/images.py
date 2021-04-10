@@ -1,5 +1,6 @@
 # -*- encoding=utf8 -*-
 
+from GameHelper.core.helper.utility import Utility
 from typing import List, Tuple
 from airtest.aircv import *
 from GameHelper.core.util.ciede2000 import ciede2000
@@ -34,6 +35,11 @@ def get_multi_color(image, points) -> str:
     # 位于屏幕中[x, y]位置的点的rgb值的获取：(x,y均从0计数)
     # 注意：这里拿到的颜色是bgr，而非rgb
     return list(map(lambda p: get_pixel_color(image, p), points))
+
+
+def is_color_similar(image, point, clr: str, threshold: float) -> bool:
+    Utility.LOGGER.warn("色差：%s, hex:%s", ciede2000(lab1=get_pixel_color(image, point), lab2=hex_to_rgb(clr)), rgb_to_hex(get_pixel_color(image, point)))
+    return ciede2000(lab1=get_pixel_color(image, point), lab2=hex_to_rgb(clr)) <= threshold
 
 
 def find_multi_color_ex(image, threshold: float = 10, points=[]) -> any:

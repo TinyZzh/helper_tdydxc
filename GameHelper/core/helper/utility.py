@@ -42,3 +42,27 @@ class Utility(object):
     LOGGER = get_logger("game")
 
     pass
+
+
+def Logwrap(f, logger):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        # py3 only: def wrapper(*args, depth=None, **kwargs):
+        depth = kwargs.pop('depth', None)  # For compatibility with py2
+        start = time.time()
+        m = inspect.getcallargs(f, *args, **kwargs)
+        fndata = {'name': f.__name__, 'call_args': m, 'start_time': start}
+        logger.info("invoke. %s", fndata)
+        try:
+            res = f(*args, **kwargs)
+        except Exception as e:
+            data = {"traceback": traceback.format_exc(), "end_time": time.time()}
+            logger.info("invoke. %s", data)
+            raise
+        else:
+            fndata.update({'ret': res, "end_time": time.time()})
+        finally:
+            logger.info('function', fndata, depth=depth)
+            logger.running_stack.pop()
+        return res
+    return wrapper
